@@ -6,6 +6,9 @@ from selenium.webdriver.common.by import By
 
 import time
 import re
+import os
+import requests
+from random import randint
 import pandas as pd
 from datetime import datetime,timedelta
 from dateutil.relativedelta import relativedelta
@@ -14,8 +17,17 @@ from dateutil.relativedelta import relativedelta
 search_criteria = "Biden"
 months_before = 2
 
+def getTimeStamp():
+    random_integer = str(randint(0,999))
+    timeStamp = str(datetime.now().strftime("%m%d%Y%H%M%S"))
+    timeStamp = timeStamp+random_integer
+    return timeStamp
+
 class Article:
-    def __init__(self,header,description,imgeUrl) -> None:
+    def __init__(self,
+                 header,
+                 description,
+                 imgeUrl):
         self.header = header
         self.description = description
         self.imgeUrl = imgeUrl
@@ -130,9 +142,50 @@ class Article:
         money_pattern = r'\$[\d,]+(?:\.\d+)?|\b\d+\s*(?:dollars?|USD)\b'
 
         return bool(re.search(money_pattern, self.description)) or bool(re.search(money_pattern, self.header)) 
+    
+    def download_image(self,img_title,folder_path = "images/"):
+
+        img_title = str(img_title)
+        
+        if not os.path.exists(folder_path):
+            try:
+                os.mkdir(folder_path)
+                print(f"Folder {folder_path} created :)")
+            except:
+                print(f"Unable to create folder {folder_path} | Error: {e}")
+                return None
+            
+        #Verify that the image file name has a correct image extension
+        img_title_splitted = img_title.lower().split(".")
+        if img_title_splitted[-1] != "png" and img_title_splitted[-1] != "jpg":
+            img_title = img_title+".png"
+
+
+        try:
+
+            response = requests.get(self.imgeUrl)
+            if response.status_code==200:
+                try:
+                    fullPathImg = os.path.join(folder_path,img_title)
+                    with open(fullPathImg,'wb') as img:
+                        img.write(response.content)
+                        return fullPathImg
+                except Exception as e:
+                    timeStamp = datetime.now().strftime("%m%d%Y%H%M%S")
+                    fullPathImg = os.path.join(folder_path,timeStamp+".png")
+                    with open(fullPathImg,'wb') as img:
+                        img.write(response.content)
+                        return fullPathImg
+        except Exception as e:
+            print(f"Error downloading image from article {e}")
+            return None
+
+
 class webScrapper:
 
-    def __init__(self,is_background,search_phrase):
+    def __init__(self,
+                 is_background,
+                 search_phrase):
         self.is_background = is_background
         self.search_phrase = search_phrase
 
@@ -180,7 +233,9 @@ class webScrapper:
                             img_url = None
                     
 
-                        yield {"header":header,"description":description,"imageURL":img_url}
+                        yield {"header":header,
+                               "description":description,
+                               "imageURL":img_url}
                 else:
                     return None
 
@@ -189,7 +244,9 @@ class webScrapper:
                 return None
             
 class FilterArticles:
-    def __init__(self,articles_list,num_months_before) -> None:
+    def __init__(self,
+                 articles_list,
+                 num_months_before) -> None:
         self.articles_list = articles_list
         self.num_months_before = num_months_before
         self.num_articles_didnt_processed = 0
@@ -199,7 +256,8 @@ class FilterArticles:
     #this function get the last date that we want an Article from 
     #Input num_months_before | integer
     #output datetime variable
-    def __get_last_date_to_gather_articles(self,num_months_before):
+    def __get_last_date_to_gather_articles(self,
+                                           num_months_before):
     
         try:
             today = datetime.now()
@@ -244,17 +302,22 @@ class FilterArticles:
         
         return articlesList_filtered
 
-def buildExcelFile(articlesList):
+def buildExcelFile(articlesList:list[Article]):
     articles_list = []
     for article in articlesList:
+        timeStamp = getTimeStamp()
+        imageTitle = f"{search_criteria} {timeStamp}.png"
         description = article.get_description_cleaned()
         ocuurences_search_phrase = article.get_ocuurences_search_phrase(search_criteria)
+        path_downloaded_image = article.download_image(imageTitle,folder_path="images/")
+
 
         articles_list.append({"header":article.header,
                               "descritption":description,
                               "date":str(article.date_publish.date()),
                               "ocurrences search phrase":ocuurences_search_phrase,
-                              'contains some_money amount':article.contains_some_money_amount
+                              'contains some_money amount':article.contains_some_money_amount,
+                              "image path":path_downloaded_image
                               })
     if len(articles_list) > 0:
             df_articles = pd.DataFrame(articles_list)
@@ -266,16 +329,21 @@ def buildExcelFile(articlesList):
 @task
 def minimal_task():
     articlesList = []
-    myWebScrapper = webScrapper(is_background=True,search_phrase=search_criteria)
+    myWebScrapper = webScrapper(is_background=True,
+                                search_phrase=search_criteria)
 
     try:
         for article in myWebScrapper.extractListOfArticles():
 
-            article_obj = Article(article["header"],article["description"],article["imageURL"])
+            article_obj = Article(article["header"],
+                                  article["description"],
+                                  article["imageURL"])
             articlesList.append(article_obj)
         
         if len(articlesList) > 0:
-            articlesFilter = FilterArticles(articles_list=articlesList,num_months_before=months_before)
+            articlesFilter = FilterArticles(articles_list=articlesList,
+                                            num_months_before=months_before)
+            
             articles_filtered_list = articlesFilter.get_filtered_articles()
 
             print(f"Total of articles {len(articlesList)}")
