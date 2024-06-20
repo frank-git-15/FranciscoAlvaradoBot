@@ -20,6 +20,7 @@ class Article:
         self.description = description
         self.imgeUrl = imgeUrl
         self.date_publish = self.__extractDatePublication(self.description)
+        self.contains_some_money_amount = self.__contains_money_amount()
 
     def __extractDate(self,text):
         pattern_months = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s(\d{1,2}),\s(\d{4})"
@@ -117,7 +118,18 @@ class Article:
 
         return description_cleaned
 
+    def get_ocuurences_search_phrase(self,search_phrase):
+        ocurrences_in_description = self.description.lower().count(search_phrase.lower())
+        ocurrences_in_header = self.header.lower().count(search_phrase.lower())
 
+
+
+        return ocurrences_in_description+ocurrences_in_header
+
+    def __contains_money_amount(self):
+        money_pattern = r'\$[\d,]+(?:\.\d+)?|\b\d+\s*(?:dollars?|USD)\b'
+
+        return bool(re.search(money_pattern, self.description)) or bool(re.search(money_pattern, self.header)) 
 class webScrapper:
 
     def __init__(self,is_background,search_phrase):
@@ -236,10 +248,13 @@ def buildExcelFile(articlesList):
     articles_list = []
     for article in articlesList:
         description = article.get_description_cleaned()
+        ocuurences_search_phrase = article.get_ocuurences_search_phrase(search_criteria)
 
         articles_list.append({"header":article.header,
                               "descritption":description,
-                              "date":str(article.date_publish.date())
+                              "date":str(article.date_publish.date()),
+                              "ocurrences search phrase":ocuurences_search_phrase,
+                              'contains some_money amount':article.contains_some_money_amount
                               })
     if len(articles_list) > 0:
             df_articles = pd.DataFrame(articles_list)
