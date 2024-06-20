@@ -18,19 +18,10 @@ class Article:
 
 class webScrapper:
 
-    def __init__(self,is_background):
+    def __init__(self,is_background,search_phrase):
         self.is_background = is_background
+        self.search_phrase = search_phrase
 
-    def extractInfoOfEachArticle(self):
-        articles = self.__extractListOfArticles()
-
-        if len(articles) > 0:
-            for article in articles:
-                header = article.find_element(By.CLASS_NAME,"gc__header-wrap").text
-                yield {"header":header}
-        else:
-            return None
-    
     def extractListOfArticles(self):
         # Configure Chrome options
         options = Options()
@@ -45,9 +36,9 @@ class webScrapper:
             options.add_argument("--headless")  # Execute the script without graphic interface
             options.add_argument("--disable-gpu")  # Disable the use of GPU
             options.add_argument("--window-size=1920,1080")  # Set a window size
-        with webdriver.Chrome() as driver:
+        with webdriver.Chrome(options=options) as driver:
             driver.implicitly_wait(10)
-            driver.get(f"https://www.aljazeera.com/search/{search_criteria}?sort=date")
+            driver.get(f"https://www.aljazeera.com/search/{self.search_phrase}?sort=date")
 
             try:
                 while True:
@@ -65,7 +56,17 @@ class webScrapper:
                 if len(articles) > 0:
                     for article in articles:
                         header = article.find_element(By.CLASS_NAME,"gc__header-wrap").text
-                        yield {"header":header}
+                        description = article.find_element(By.CLASS_NAME,"gc__excerpt").text
+
+                        try:
+                            img_element = article.find_element(By.CLASS_NAME, 'article-card__image')
+                            img_url = img_element.get_attribute('src')
+                        except Exception as e:
+                            print(f"Error getting url of image")
+                            img_url = None
+                    
+
+                        yield {"header":header,"description":description,"imageURL":img_url}
                 else:
                     return None
 
@@ -91,11 +92,13 @@ class webScrapper:
 
 @task
 def minimal_task():
-    myWebScrapper = webScrapper(is_background=False)
+    articlesList = []
+    myWebScrapper = webScrapper(is_background=True,search_phrase=search_criteria)
 
     try:
         for article in myWebScrapper.extractListOfArticles():
-            print(article)
+            article_obj = Article(article["header"],article["description"],article["imageURL"])
+            articlesList.append(article_obj)
 
     except Exception as e:
         print (e)
