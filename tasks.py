@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 
 
 search_criteria = "Biden"
-months_before = 1
+months_before = 2
 
 class Article:
     def __init__(self,header,description,imgeUrl) -> None:
@@ -22,7 +22,7 @@ class Article:
 
     def __extractDate(self,text):
         pattern_months = r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s(\d{1,2}),\s(\d{4})"
-        matches = re.findall(pattern_months, text)
+        matches = re.findall(pattern_months, text.lower())
 
         if matches:
             date = "/".join(list(matches[0]))
@@ -32,7 +32,7 @@ class Article:
     def __extractTimeAgo(self,text):
     
         pattern = r'(.*)\s+ago\s+\.{1,3}'
-        matches = re.findall(pattern, text)
+        matches = re.findall(pattern, text.lower())
 
         if matches:
             return matches[0]
@@ -66,17 +66,17 @@ class Article:
     def __extractDatePublication(self,description):
 
         datePublication = self.__extractDate(description)
-        timeAgo = self.__extractTimeAgo(description)
+
         datePublicationOfArticle = None
 
         if datePublication is not None:
-
-
             datePublicationOfArticle = datePublication
-        elif timeAgo is not None:
-            dateFromTimeAgo = self.__getPublicationDateFromTimeAgo(timeAgo)
+        else:
+            timeAgo = self.__extractTimeAgo(description)
+            if timeAgo is not None:
+                dateFromTimeAgo = self.__getPublicationDateFromTimeAgo(timeAgo)
 
-            datePublicationOfArticle = dateFromTimeAgo
+                datePublicationOfArticle = dateFromTimeAgo
         
         if datePublicationOfArticle is not None:
             datePublicationOfArticle = self.__standarizeDate(datePublicationOfArticle)
@@ -169,6 +169,9 @@ class FilterArticles:
     def __init__(self,articles_list,num_months_before) -> None:
         self.articles_list = articles_list
         self.num_months_before = num_months_before
+        self.num_articles_didnt_processed = 0
+        self.num_articles_processed = 0
+
     
     #this function get the last date that we want an Article from 
     #Input num_months_before | integer
@@ -185,7 +188,7 @@ class FilterArticles:
 
             else:
                 num_months_before -=1 
-                return first_day_of_month - relativedelta(month=num_months_before)
+                return first_day_of_month - relativedelta(months=num_months_before)
             
         except TypeError as e:
             print("You need to enter a integer value")
@@ -195,9 +198,14 @@ class FilterArticles:
     def __filter_by_month(self,article):
         filter_date = self.__get_last_date_to_gather_articles(self.num_months_before)
         try:
-            if article.date_publish >= filter_date:
+            #print(f"Date post {article.date_publish.date()} | filter {filter_date.date()} ")
+            if article.date_publish.date() >= filter_date.date():
+                self.num_articles_processed += 1
                 return True
             else:
+                self.num_articles_didnt_processed += 1
+
+                #print(f"Date {article.date_publish.date()} is older than {filter_date.date()}")
                 return False
         except Exception as e:
             print("error filtering article by date")
@@ -227,6 +235,13 @@ def minimal_task():
         if len(articlesList) > 0:
             articlesFilter = FilterArticles(articles_list=articlesList,num_months_before=months_before)
             articles_filtered_list = articlesFilter.get_filtered_articles()
+
+            print(f"Total of articles {len(articlesList)}")
+            print(f"Articles did not processed {articlesFilter.num_articles_didnt_processed}")
+            print(f"Articles processed {articlesFilter.num_articles_processed}")
+
+
+
             print("")
         else:
             print("No articles found")
