@@ -11,7 +11,7 @@ from dateutil.relativedelta import relativedelta
 
 
 search_criteria = "Biden"
-num_of_moths_to_retrieve = 1
+months_before = 1
 
 class Article:
     def __init__(self,header,description,imgeUrl) -> None:
@@ -163,9 +163,55 @@ class webScrapper:
             except Exception as e:
                 print(f"Error - {e}")
                 return None
+            
 
+class FilterArticles:
+    def __init__(self,articles_list,num_months_before) -> None:
+        self.articles_list = articles_list
+        self.num_months_before = num_months_before
+    
+    #this function get the last date that we want an Article from 
+    #Input num_months_before | integer
+    #output datetime variable
+    def __get_last_date_to_gather_articles(self,num_months_before):
+    
+        try:
+            today = datetime.now()
 
+            first_day_of_month = today.replace(day=1)
 
+            if num_months_before < 2:
+                return first_day_of_month
+
+            else:
+                num_months_before -=1 
+                return first_day_of_month - relativedelta(month=num_months_before)
+            
+        except TypeError as e:
+            print("You need to enter a integer value")
+            return None
+        
+    #this function verify if the date of an article is not older thant the date that was generate by get_last_date_to_gather_articles
+    def __filter_by_month(self,article):
+        filter_date = self.__get_last_date_to_gather_articles(self.num_months_before)
+        try:
+            if article.date_publish >= filter_date:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print("error filtering article by date")
+            return False
+        
+    #Filter each article in articles_list using the filter_by_month function
+    def get_filtered_articles(self):
+        try:
+            articlesList_filtered = list(filter(self.__filter_by_month,self.articles_list))
+        except Exception as e:
+            print(f"Error filtering articles | {e}")
+            articlesList_filtered = []
+        
+        return articlesList_filtered
 
 @task
 def minimal_task():
@@ -177,6 +223,13 @@ def minimal_task():
 
             article_obj = Article(article["header"],article["description"],article["imageURL"])
             articlesList.append(article_obj)
+        
+        if len(articlesList) > 0:
+            articlesFilter = FilterArticles(articles_list=articlesList,num_months_before=months_before)
+            articles_filtered_list = articlesFilter.get_filtered_articles()
+            print("")
+        else:
+            print("No articles found")
         
 
     except Exception as e:
