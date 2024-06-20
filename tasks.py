@@ -2,6 +2,9 @@ from robocorp.tasks import task
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 
 import time
 
@@ -32,6 +35,30 @@ def webScrapper(is_background=True):
     with webdriver.Chrome() as driver:
         driver.implicitly_wait(10)
         driver.get(f"https://www.aljazeera.com/search/{search_criteria}?sort=date")
+
+        try:
+            while True:
+                try:
+                    # Wait until "Show more" button is visible and presente
+                    show_more_button = driver.find_element(By.XPATH,'//*[@id="main-content-area"]/div[2]/div[2]/button/span[2]')
+                    # show_more_button = WebDriverWait(driver, 10).until(
+                    #         EC.element_to_be_clickable((By.XPATH, '//*[@id="main-content-area"]/div[2]/div[2]/button/span[2]'))
+                    #     )
+                    
+                    # Scroll down until get to the  "Show more" button
+                    driver.execute_script("arguments[0].scrollIntoView();", show_more_button)
+                    show_more_button.click()
+                    time.sleep(5)
+                except Exception as e:
+                    print("Unable to find the show more button")
+                    break
+        except Exception as e:
+            print(e)
+
+
+
+                
+
 
         
 
