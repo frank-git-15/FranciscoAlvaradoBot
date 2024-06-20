@@ -21,6 +21,15 @@ class webScrapper:
     def __init__(self,is_background):
         self.is_background = is_background
 
+    def extractInfoOfEachArticle(self):
+        articles = self.__extractListOfArticles()
+
+        if len(articles) > 0:
+            for article in articles:
+                header = article.find_element(By.CLASS_NAME,"gc__header-wrap").text
+                yield {"header":header}
+        else:
+            return None
     
     def extractListOfArticles(self):
         # Configure Chrome options
@@ -51,9 +60,19 @@ class webScrapper:
                         print("Unable to find the show more button")
                         break
                 
-                return driver.find_elements(By.XPATH, '//div[@class="search-result__list"]/article')
+                articles =  driver.find_elements(By.XPATH, '//div[@class="search-result__list"]/article')
+
+                if len(articles) > 0:
+                    for article in articles:
+                        header = article.find_element(By.CLASS_NAME,"gc__header-wrap").text
+                        yield {"header":header}
+                else:
+                    return None
+
             except Exception as e:
                 return None
+        
+
 
 
 
@@ -74,9 +93,14 @@ class webScrapper:
 def minimal_task():
     myWebScrapper = webScrapper(is_background=False)
 
-    list_articles = myWebScrapper.extractListOfArticles()
+    try:
+        for article in myWebScrapper.extractListOfArticles():
+            print(article)
 
-    print(list_articles)
+    except Exception as e:
+        print (e)
+
+
 
 
 
