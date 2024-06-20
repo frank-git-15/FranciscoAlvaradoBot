@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 
 import time
 import re
+import pandas as pd
 from datetime import datetime,timedelta
 from dateutil.relativedelta import relativedelta
 
@@ -105,6 +106,17 @@ class Article:
             dateStr = None
         return dateStr
 
+    def get_description_cleaned(self):
+        regex_date = re.compile(r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s(\d{1,2}),\s(\d{4})\s(\.\.\.\s)+",re.IGNORECASE)
+        regex_time_ago = re.compile(r"^\d+\s(?:hours?|minutes?|days?)\sago\s(\.\.\.\s)+", re.IGNORECASE)
+        description_cleaned = regex_date.sub("", self.description)
+
+        
+        #Delete the date or time ago from the description
+        description_cleaned = regex_time_ago.sub("", description_cleaned)
+
+        return description_cleaned
+
 
 class webScrapper:
 
@@ -164,7 +176,6 @@ class webScrapper:
                 print(f"Error - {e}")
                 return None
             
-
 class FilterArticles:
     def __init__(self,articles_list,num_months_before) -> None:
         self.articles_list = articles_list
@@ -221,6 +232,22 @@ class FilterArticles:
         
         return articlesList_filtered
 
+def buildExcelFile(articlesList):
+    articles_list = []
+    for article in articlesList:
+        description = article.get_description_cleaned()
+
+        articles_list.append({"header":article.header,
+                              "descritption":description,
+                              "date":str(article.date_publish.date())
+                              })
+    if len(articles_list) > 0:
+            df_articles = pd.DataFrame(articles_list)
+            df_articles.to_excel("articles_webScraping.xlsx",index=False)
+    else:
+        print("No articles founded")
+        
+
 @task
 def minimal_task():
     articlesList = []
@@ -240,9 +267,10 @@ def minimal_task():
             print(f"Articles did not processed {articlesFilter.num_articles_didnt_processed}")
             print(f"Articles processed {articlesFilter.num_articles_processed}")
 
+            buildExcelFile(articlesList=articles_filtered_list)
 
 
-            print("")
+
         else:
             print("No articles found")
         
