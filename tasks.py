@@ -1,5 +1,4 @@
 from robocorp.tasks import task
-
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -12,10 +11,15 @@ from random import randint
 import pandas as pd
 from datetime import datetime,timedelta
 from dateutil.relativedelta import relativedelta
+# from RPA.Robocorp.WorkItems import WorkItems
+from robocorp import workitems
+import zipfile
 
+folder_outputs = "output/"
 
-search_criteria = "Biden"
-months_before = 2
+# search_criteria = "trump"
+# months_before = 2
+
 
 def getTimeStamp():
     random_integer = str(randint(0,999))
@@ -143,7 +147,7 @@ class Article:
 
         return bool(re.search(money_pattern, self.description)) or bool(re.search(money_pattern, self.header)) 
     
-    def download_image(self,img_title,folder_path = "images/"):
+    def download_image(self,img_title,folder_path = "output/images"):
 
         img_title = str(img_title)
         
@@ -302,14 +306,17 @@ class FilterArticles:
         
         return articlesList_filtered
 
-def buildExcelFile(articlesList:list[Article]):
+def buildExcelFile(articlesList:list[Article],search_criteria):
     articles_list = []
+    downloaded_images = []
     for article in articlesList:
         timeStamp = getTimeStamp()
         imageTitle = f"{search_criteria} {timeStamp}.png"
         description = article.get_description_cleaned()
         ocuurences_search_phrase = article.get_ocuurences_search_phrase(search_criteria)
-        path_downloaded_image = article.download_image(imageTitle,folder_path="images/")
+        path_downloaded_image = article.download_image(imageTitle)
+
+        downloaded_images.append(path_downloaded_image)
 
 
         articles_list.append({"header":article.header,
@@ -317,17 +324,46 @@ def buildExcelFile(articlesList:list[Article]):
                               "date":str(article.date_publish.date()),
                               "ocurrences search phrase":ocuurences_search_phrase,
                               'contains some_money amount':article.contains_some_money_amount,
-                              "image path":path_downloaded_image
+                              "image path":os.path.basename(path_downloaded_image)
                               })
     if len(articles_list) > 0:
+            excelFileName = os.path.join(folder_outputs,f"articles_webScraping {timeStamp}.xlsx")
+
+            timeStamp = getTimeStamp()
             df_articles = pd.DataFrame(articles_list)
-            df_articles.to_excel("articles_webScraping.xlsx",index=False)
+            df_articles.to_excel(excelFileName,index=False)
+
+            if len(downloaded_images) > 0:
+                zip_images(downloaded_images)
+
+            return excelFileName
     else:
         print("No articles founded")
+        return None
+
+def zip_images(image_path_list):
+    with zipfile.ZipFile("output/consolidated_images.zip", 'w') as zipf:
+        for file in image_path_list:
+            zipf.write(file, os.path.basename(file))
+    print(f"Created zip file output/consolidated_images.zip")
         
 
 @task
 def minimal_task():
+
+    item = workitems.inputs.current
+
+    print("Received payload: ",item.payload)
+
+    print(f"payload type {type(item.payload)}")
+
+    search_criteria = item.payload["payload"]["search_criteria"]
+    months_before = item.payload["payload"]["months_before"]
+
+    print(f"search_criteria {search_criteria}")
+    print(f"months_before {months_before}")
+
+    
     articlesList = []
     myWebScrapper = webScrapper(is_background=True,
                                 search_phrase=search_criteria)
@@ -350,10 +386,10 @@ def minimal_task():
             print(f"Articles did not processed {articlesFilter.num_articles_didnt_processed}")
             print(f"Articles processed {articlesFilter.num_articles_processed}")
 
-            buildExcelFile(articlesList=articles_filtered_list)
 
+            excelFileName = buildExcelFile(articlesList=articles_filtered_list,search_criteria=search_criteria)
 
-
+            print(f"output excel file {excelFileName}")
         else:
             print("No articles found")
         
