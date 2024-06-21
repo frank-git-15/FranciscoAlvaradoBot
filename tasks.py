@@ -11,14 +11,12 @@ from random import randint
 import pandas as pd
 from datetime import datetime,timedelta
 from dateutil.relativedelta import relativedelta
-# from RPA.Robocorp.WorkItems import WorkItems
 from robocorp import workitems
 import zipfile
 
 folder_outputs = "output/"
 
-# search_criteria = "trump"
-# months_before = 2
+
 
 
 def getTimeStamp():
@@ -306,46 +304,52 @@ class FilterArticles:
         
         return articlesList_filtered
 
-def buildExcelFile(articlesList:list[Article],search_criteria):
-    articles_list = []
-    downloaded_images = []
-    for article in articlesList:
-        timeStamp = getTimeStamp()
-        imageTitle = f"{search_criteria} {timeStamp}.png"
-        description = article.get_description_cleaned()
-        ocuurences_search_phrase = article.get_ocuurences_search_phrase(search_criteria)
-        path_downloaded_image = article.download_image(imageTitle)
 
-        downloaded_images.append(path_downloaded_image)
+class Report:
+    def __init__(self,articlesList:list[Article],search_criteria) -> None:
+        self.articlesList = articlesList
+        self.search_criteria= search_criteria
 
-
-        articles_list.append({"header":article.header,
-                              "descritption":description,
-                              "date":str(article.date_publish.date()),
-                              "ocurrences search phrase":ocuurences_search_phrase,
-                              'contains some_money amount':article.contains_some_money_amount,
-                              "image path":os.path.basename(path_downloaded_image)
-                              })
-    if len(articles_list) > 0:
-            excelFileName = os.path.join(folder_outputs,f"articles_webScraping {timeStamp}.xlsx")
-
+    def buildExcelFile(self):
+        articles_list = []
+        downloaded_images = []
+        for article in self.articlesList:
             timeStamp = getTimeStamp()
-            df_articles = pd.DataFrame(articles_list)
-            df_articles.to_excel(excelFileName,index=False)
+            imageTitle = f"{self.search_criteria} {timeStamp}.png"
+            description = article.get_description_cleaned()
+            ocuurences_search_phrase = article.get_ocuurences_search_phrase(self.search_criteria)
+            path_downloaded_image = article.download_image(imageTitle)
 
-            if len(downloaded_images) > 0:
-                zip_images(downloaded_images)
+            downloaded_images.append(path_downloaded_image)
 
-            return excelFileName
-    else:
-        print("No articles founded")
-        return None
 
-def zip_images(image_path_list):
-    with zipfile.ZipFile("output/consolidated_images.zip", 'w') as zipf:
-        for file in image_path_list:
-            zipf.write(file, os.path.basename(file))
-    print(f"Created zip file output/consolidated_images.zip")
+            articles_list.append({"header":article.header,
+                                "descritption":description,
+                                "date":str(article.date_publish.date()),
+                                "ocurrences search phrase":ocuurences_search_phrase,
+                                'contains some_money amount':article.contains_some_money_amount,
+                                "image path":os.path.basename(path_downloaded_image)
+                                })
+        if len(articles_list) > 0:
+                excelFileName = os.path.join(folder_outputs,f"articles_webScraping {timeStamp}.xlsx")
+
+                timeStamp = getTimeStamp()
+                df_articles = pd.DataFrame(articles_list)
+                df_articles.to_excel(excelFileName,index=False)
+
+                if len(downloaded_images) > 0:
+                    self.zip_images(downloaded_images)
+
+                return excelFileName
+        else:
+            print("No articles founded")
+            return None
+
+    def zip_images(self,image_path_list):
+        with zipfile.ZipFile("output/consolidated_images.zip", 'w') as zipf:
+            for file in image_path_list:
+                zipf.write(file, os.path.basename(file))
+        print(f"Created zip file - output/consolidated_images.zip")
         
 
 @task
@@ -386,8 +390,11 @@ def minimal_task():
             print(f"Articles did not processed {articlesFilter.num_articles_didnt_processed}")
             print(f"Articles processed {articlesFilter.num_articles_processed}")
 
+            report = Report(articlesList=articles_filtered_list,search_criteria=search_criteria)
 
-            excelFileName = buildExcelFile(articlesList=articles_filtered_list,search_criteria=search_criteria)
+            excelFileName = report.buildExcelFile()
+
+           
 
             print(f"output excel file {excelFileName}")
         else:
