@@ -440,9 +440,12 @@ class webScrapper:
         options.add_argument("--start-maximized")#Maximize chrome window
         if self.is_background:
             # Execute the bot in background
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--headless")  # Execute the script without graphic interface
             options.add_argument("--disable-gpu")  # Disable the use of GPU
             options.add_argument("--window-size=1920,1080")  # Set a window size
+        options.add_argument("--remote-debugging-port=9222")
         with webdriver.Chrome(options=options) as driver:
             driver.implicitly_wait(10)
             addLog(f"Going to web page https://www.aljazeera.com/search/{self.search_phrase}?sort=date .......","info")
