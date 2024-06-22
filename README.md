@@ -36,7 +36,6 @@ The template provides you with the basic structure of a Python project: logging 
           "months_before": 3
         }
       }
-      exa
 
 ### Results in control room
     Artifacts:
