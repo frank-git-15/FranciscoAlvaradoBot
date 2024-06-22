@@ -29,6 +29,15 @@ The template provides you with the basic structure of a Python project: logging 
           "months_before": How many months ago are the articles needed as integer
         }
       }
+      example:
+      {
+        "payload": {
+          "search_criteria": "tesla",
+          "months_before": 3
+        }
+      }
+      exa
+
 ### Results in control room
     Artifacts:
       articles_webScraping xxxxx.xlsx
